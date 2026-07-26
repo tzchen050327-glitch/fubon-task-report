@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>悍將任務戰報</title>
+
+  <meta name="theme-color" content="#071a33" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="任務戰報" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <style>
+    :root {
+      --navy: #071a33;
+      --blue: #0b5cb8;
+      --cyan: #33b7ff;
+      --panel: #ffffff;
+      --line: #dbe7f2;
+      --text: #152235;
+      --muted: #64748b;
+      --danger: #e53935;
+      --success: #18a765;
+      --page: #edf3f8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--page);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-top: env(safe-area-inset-top);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      color: var(--text);
+      background: var(--page);
+      font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(360px, 520px) minmax(520px, 1fr);
+      gap: 24px;
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid #d9e3ec;
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(31, 55, 79, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h1,
+    .panel-header h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .panel-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .editor {
+      padding: 20px 22px 24px;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      display: grid;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-weight: 800;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      font-size: 13px;
+      color: #405168;
+      font-weight: 700;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid #cfdbe6;
+      border-radius: 11px;
+      padding: 10px 12px;
+      background: #fff;
+      outline: none;
+      transition: 0.15s ease;
+    }
+
+    .field textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(11, 92, 184, 0.12);
+    }
+
+    .task-editor {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #f9fbfd;
+      display: grid;
+      gap: 12px;
+    }
+
+    .task-editor-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 800;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 76px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      color: white;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .status-badge.done { background: var(--success); }
+    .status-badge.pending { background: var(--danger); }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(to top, #fff 75%, rgba(255,255,255,0));
+      padding-top: 14px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), #0f78d7);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #eaf1f7;
+      color: #29405c;
+    }
+
+    .preview-panel {
+      position: sticky;
+      top: 20px;
+    }
+
+    .canvas-wrap {
+      padding: 18px;
+      display: flex;
+      justify-content: center;
+      background:
+        linear-gradient(45deg, #edf3f8 25%, transparent 25%),
+        linear-gradient(-45deg, #edf3f8 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #edf3f8 75%),
+        linear-gradient(-45deg, transparent 75%, #edf3f8 75%);
+      background-size: 28px 28px;
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+    }
+
+    canvas {
+      width: min(100%, 820px);
+      height: auto;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      box-shadow: 0 16px 40px rgba(4, 25, 54, 0.22);
+      background: #09264b;
+    }
+
+    .preview-note {
+      padding: 0 20px 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .icon-preview {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #e8f4ff;
+      padding: 5px;
+      border: 1px solid #cfe5f8;
+    }
+
+    .icon-row {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 10px;
+      align-items: end;
+    }
+
+    @media (max-width: 1040px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .preview-panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app { padding: 12px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .actions { grid-template-columns: 1fr; }
+      .panel-header, .editor { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <header class="panel-header">
+        <h1>每週任務進度圖片產生器</h1>
+        <p>設定四個任務與今日戰報，右側會即時產生 1080 × 1080 正方形圖片。</p>
+      </header>
+
+      <div class="editor">
+        <section class="section">
+          <div class="section-title">基本資料</div>
+          <div class="field">
+            <label for="mainTitle">主標題</label>
+            <input id="mainTitle" maxlength="18" value="本週任務進度" />
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="weekText">任務週期</label>
+              <input id="weekText" maxlength="24" value="7/27－8/2" />
+            </div>
+            <div class="field">
+              <label for="updateText">更新日期</label>
+              <input id="updateText" maxlength="24" value="7/30 賽後更新" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">四個任務</div>
+          <div id="taskEditors"></div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">今日戰報</div>
+          <div class="grid-2">
+            <div class="field">
+              <label for="reportDate">比賽日期</label>
+              <input id="reportDate" maxlength="18" value="7/30 今日戰報" />
+            </div>
+            <div class="field">
+              <label for="venue">比賽場地（選填）</label>
+              <input id="venue" maxlength="18" value="新莊棒球場" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="team1">悍將隊名</label>
+              <input id="team1" maxlength="12" value="富邦悍將" />
+            </div>
+            <div class="field">
+              <label for="team2">對手隊名</label>
+              <input id="team2" maxlength="12" value="統一獅" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="score1">悍將分數</label>
+              <input id="score1" type="number" min="0" max="99" value="5" />
+            </div>
+            <div class="field">
+              <label for="score2">對手分數</label>
+              <input id="score2" type="number" min="0" max="99" value="3" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="highlights">重點數據（用「｜」分隔，建議三項）</label>
+            <input id="highlights" maxlength="48" value="團隊安打 11｜全壘打 2｜投手三振 8" />
+          </div>
+        </section>
+
+        <div class="actions">
+          <button id="downloadBtn" class="btn btn-primary">下載 1080×1080 PNG</button>
+          <button id="installBtn" class="btn btn-primary">安裝到手機</button>
+          <button id="resetBtn" class="btn btn-secondary">開始新的一週</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel preview-panel">
+      <header class="panel-header">
+        <h2>圖片預覽</h2>
+        <p>編輯內容會即時更新；下載圖片不會包含左側輸入介面。</p>
+      </header>
+      <div class="canvas-wrap">
+        <canvas id="poster" width="1080" height="1080"></canvas>
+      </div>
+      <div class="preview-note">
+        小人圖示目前直接寫在程式內。之後可以把 <code>ICON_LIBRARY</code> 裡的圖示來源改成專案中的 PNG 或 WebP 路徑。
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ==========================================================
+    // 小人圖示資料庫
+    // 未來要改成自己的圖片，可將 src 改成：
+    // src: "images/batting.png"
+    // 圖片需與本網頁放在同一個網站來源，才能正常下載 Canvas 圖片。
+    // ==========================================================
+
+    function svgData(svg) {
+      return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    }
+
+    function sportIcon(type, accent = "#0b5cb8") {
+      const baseStart = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+          <rect width="120" height="120" rx="28" fill="#eaf6ff"/>
+          <g fill="none" stroke="${accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="52" cy="25" r="11" fill="${accent}" stroke="none"/>
+      `;
+      const baseEnd = `</g></svg>`;
+
+      const drawings = {
+        batting: `
+          <path d="M50 40 L58 68 L40 92"/>
+          <path d="M56 52 L80 61"/>
+          <path d="M58 68 L82 91"/>
+          <path d="M76 18 L98 75"/>
+          <path d="M73 20 L91 13"/>
+        `,
+        run: `
+          <path d="M51 40 L58 64"/>
+          <path d="M55 49 L78 39"/>
+          <path d="M58 64 L84 78"/>
+          <path d="M58 64 L36 91"/>
+          <path d="M26 96 L46 96"/>
+          <path d="M85 84 L103 84"/>
+        `,
+        win: `
+          <path d="M51 40 L51 74"/>
+          <path d="M51 50 L28 61"/>
+          <path d="M51 50 L75 35"/>
+          <path d="M51 74 L34 98"/>
+          <path d="M51 74 L70 98"/>
+          <path d="M78 16 L91 28 L106 11"/>
+        `,
+        pitching: `
+          <path d="M51 40 L61 68"/>
+          <path d="M55 49 L84 34"/>
+          <path d="M61 68 L35 93"/>
+          <path d="M61 68 L88 91"/>
+          <circle cx="92" cy="29" r="7" fill="${accent}" stroke="none"/>
+        `,
+        homerun: `
+          <path d="M50 40 L57 69 L38 94"/>
+          <path d="M55 51 L76 60"/>
+          <path d="M57 69 L83 91"/>
+          <path d="M77 19 L96 70"/>
+          <path d="M87 16 L101 6"/>
+          <path d="M96 24 L111 22"/>
+          <path d="M93 33 L106 42"/>
+        `,
+        defense: `
+          <path d="M51 40 L58 70"/>
+          <path d="M54 50 L30 65"/>
+          <path d="M56 51 L78 64"/>
+          <path d="M58 70 L42 98"/>
+          <path d="M58 70 L79 98"/>
+          <path d="M82 55 Q101 64 89 82 Q73 79 73 65 Z"/>
+        `
+      };
+
+      return svgData(baseStart + drawings[type] + baseEnd);
+    }
+
+    const ICON_LIBRARY = [
+      { id: "batting", name: "打擊小人", src: sportIcon("batting") },
+      { id: "run", name: "得分小人", src: sportIcon("run", "#007ac2") },
+      { id: "win", name: "勝場小人", src: sportIcon("win", "#159f65") },
+      { id: "pitching", name: "投手小人", src: sportIcon("pitching", "#6b47c7") },
+      { id: "homerun", name: "全壘打小人", src: sportIcon("homerun", "#e07b00") },
+      { id: "defense", name: "守備小人", src: sportIcon("defense", "#3d6d91") }
+    ];
+
+    const DEFAULT_TASKS = [
+      { icon: "batting", title: "團隊累積安打", current: 25, target: 30 },
+      { icon: "run", title: "團隊累積得分", current: 20, target: 20 },
+      { icon: "win", title: "本週取得勝場", current: 2, target: 3 },
+      { icon: "pitching", title: "投手累積三振", current: 28, target: 25 }
+    ];
+
+    const STORAGE_KEY = "fubon-weekly-task-poster-v1";
+    const canvas = document.getElementById("poster");
+    const ctx = canvas.getContext("2d");
+    const taskEditors = document.getElementById("taskEditors");
+
+    const iconImages = new Map();
+    let tasks = structuredClone(DEFAULT_TASKS);
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function clampNumber(value, fallback = 0) {
+      const number = Number(value);
+      return Number.isFinite(number) ? Math.max(0, number) : fallback;
+    }
+
+    function roundedRect(context, x, y, width, height, radius) {
+      const r = Math.min(radius, width / 2, height / 2);
+      context.beginPath();
+      context.moveTo(x + r, y);
+      context.arcTo(x + width, y, x + width, y + height, r);
+      context.arcTo(x + width, y + height, x, y + height, r);
+      context.arcTo(x, y + height, x, y, r);
+      context.arcTo(x, y, x + width, y, r);
+      context.closePath();
+    }
+
+    function fitText(text, maxWidth, startSize, minSize, weight = 800) {
+      let size = startSize;
+      while (size > minSize) {
+        ctx.font = `${weight} ${size}px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        if (ctx.measureText(text).width <= maxWidth) return size;
+        size -= 1;
+      }
+      return minSize;
+    }
+
+    function wrapText(text, maxWidth, maxLines = 2) {
+      const chars = [...String(text || "")];
+      const lines = [];
+      let line = "";
+
+      for (const char of chars) {
+        const test = line + char;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = char;
+          if (lines.length === maxLines - 1) break;
+        } else {
+          line = test;
+        }
+      }
+
+      if (lines.length < maxLines && line) {
+        const used = lines.join("").length;
+        const remaining = chars.slice(used).join("");
+        let finalLine = remaining;
+        while (ctx.measureText(finalLine).width > maxWidth && finalLine.length > 1) {
+          finalLine = finalLine.slice(0, -1);
+        }
+        if (remaining.length > finalLine.length) {
+          finalLine = finalLine.slice(0, -1) + "…";
+        }
+        lines.push(finalLine);
+      }
+
+      return lines;
+    }
+
+    function getState() {
+      return {
+        mainTitle: byId("mainTitle").value.trim(),
+        weekText: byId("weekText").value.trim(),
+        updateText: byId("updateText").value.trim(),
+        reportDate: byId("reportDate").value.trim(),
+        venue: byId("venue").value.trim(),
+        team1: byId("team1").value.trim(),
+        team2: byId("team2").value.trim(),
+        score1: clampNumber(byId("score1").value),
+        score2: clampNumber(byId("score2").value),
+        highlights: byId("highlights").value.trim(),
+        tasks
+      };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!saved) return;
+
+        const textFields = [
+          "mainTitle", "weekText", "updateText", "reportDate",
+          "venue", "team1", "team2", "score1", "score2", "highlights"
+        ];
+
+        for (const key of textFields) {
+          if (saved[key] !== undefined && byId(key)) {
+            byId(key).value = saved[key];
+          }
+        }
+
+        if (Array.isArray(saved.tasks) && saved.tasks.length === 4) {
+          tasks = saved.tasks.map((task, index) => ({
+            icon: ICON_LIBRARY.some(icon => icon.id === task.icon) ? task.icon : DEFAULT_TASKS[index].icon,
+            title: String(task.title ?? ""),
+            current: clampNumber(task.current),
+            target: clampNumber(task.target)
+          }));
+        }
+      } catch (error) {
+        console.warn("讀取儲存資料失敗：", error);
+      }
+    }
+
+    function makeTaskEditors() {
+      taskEditors.innerHTML = "";
+
+      tasks.forEach((task, index) => {
+        const editor = document.createElement("div");
+        editor.className = "task-editor";
+        editor.innerHTML = `
+          <div class="task-editor-head">
+            <span>任務 ${index + 1}</span>
+            <span class="status-badge ${task.current >= task.target ? "done" : "pending"}" id="status-${index}">
+              ${task.current >= task.target ? "○ 已達成" : "× 未達成"}
+            </span>
+          </div>
+
+          <div class="icon-row">
+            <img class="icon-preview" id="icon-preview-${index}" alt="任務圖示" />
+            <div class="field">
+              <label for="icon-${index}">小人圖示</label>
+              <select id="icon-${index}">
+                ${ICON_LIBRARY.map(icon =>
+                  `<option value="${icon.id}" ${icon.id === task.icon ? "selected" : ""}>${icon.name}</option>`
+                ).join("")}
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="title-${index}">任務標題</label>
+            <input id="title-${index}" maxlength="24" value="${escapeHtml(task.title)}" />
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="current-${index}">目前成績</label>
+              <input id="current-${index}" type="number" min="0" max="9999" value="${task.current}" />
+            </div>
+            <div class="field">
+              <label for="target-${index}">目標成績</label>
+              <input id="target-${index}" type="number" min="0" max="9999" value="${task.target}" />
+            </div>
+          </div>
+        `;
+
+        taskEditors.appendChild(editor);
+
+        const iconSelect = byId(`icon-${index}`);
+        const titleInput = byId(`title-${index}`);
+        const currentInput = byId(`current-${index}`);
+        const targetInput = byId(`target-${index}`);
+        const preview = byId(`icon-preview-${index}`);
+
+        function updateTask() {
+          tasks[index] = {
+            icon: iconSelect.value,
+            title: titleInput.value,
+            current: clampNumber(currentInput.value),
+            target: clampNumber(targetInput.value)
+          };
+
+          const icon = ICON_LIBRARY.find(item => item.id === tasks[index].icon);
+          preview.src = icon?.src || "";
+          updateStatusBadge(index);
+          renderAndSave();
+        }
+
+        preview.src = ICON_LIBRARY.find(item => item.id === task.icon)?.src || "";
+        [iconSelect, titleInput, currentInput, targetInput].forEach(element => {
+          element.addEventListener("input", updateTask);
+          element.addEventListener("change", updateTask);
+        });
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function updateStatusBadge(index) {
+      const badge = byId(`status-${index}`);
+      if (!badge) return;
+      const done = tasks[index].current >= tasks[index].target;
+      badge.className = `status-badge ${done ? "done" : "pending"}`;
+      badge.textContent = done ? "○ 已達成" : "× 未達成";
+    }
+
+    function drawBackground() {
+      const gradient = ctx.createLinearGradient(0, 0, 1080, 1080);
+      gradient.addColorStop(0, "#061a35");
+      gradient.addColorStop(0.55, "#0a4b92");
+      gradient.addColorStop(1, "#0f76c8");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      ctx.save();
+      ctx.globalAlpha = 0.075;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 4;
+      for (let x = -300; x < 1400; x += 110) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + 520, 1080);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(960, 98, 170, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(960, 98, 115, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawHeader(state) {
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `900 62px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(state.mainTitle || "本週任務進度", 56, 83);
+
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.font = `700 28px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(`${state.weekText || "本週"}｜${state.updateText || "賽後更新"}`, 58, 126);
+
+      ctx.textAlign = "right";
+      ctx.font = `900 18px Arial, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.64)";
+      ctx.fillText("WEEKLY TASK REPORT", 1024, 50);
+
+      ctx.fillStyle = "#35b8ff";
+      roundedRect(ctx, 58, 145, 122, 7, 4);
+      ctx.fill();
+    }
+
+    function drawTaskCard(task, index, x, y, w, h) {
+      const done = task.current >= task.target;
+
+      ctx.save();
+      ctx.shadowColor = "rgba(2, 22, 48, 0.25)";
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 8;
+      ctx.fillStyle = "rgba(255,255,255,0.96)";
+      roundedRect(ctx, x, y, w, h, 26);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = done ? "rgba(24,167,101,0.55)" : "rgba(255,255,255,0.45)";
+      ctx.lineWidth = done ? 5 : 2;
+      roundedRect(ctx, x + 2, y + 2, w - 4, h - 4, 24);
+      ctx.stroke();
+      ctx.restore();
+
+      // 編號
+      ctx.fillStyle = "#0b5cb8";
+      ctx.font = `900 18px Arial, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.fillText(String(index + 1).padStart(2, "0"), x + 26, y + 34);
+
+      // 圖示底板
+      ctx.fillStyle = "#eaf6ff";
+      roundedRect(ctx, x + 24, y + 50, 86, 86, 20);
+      ctx.fill();
+
+      const image = iconImages.get(task.icon);
+      if (image?.complete) {
+        ctx.drawImage(image, x + 31, y + 57, 72, 72);
+      }
+
+      // 狀態
+      ctx.fillStyle = done ? "#18a765" : "#e53935";
+      ctx.beginPath();
+      ctx.arc(x + w - 50, y + 49, 31, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `900 40px Arial, sans-serif`;
+      ctx.fillText(done ? "○" : "×", x + w - 50, y + 48);
+
+      // 標題
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#13263d";
+      ctx.font = `900 31px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      const titleLines = wrapText(task.title || `任務 ${index + 1}`, w - 175, 2);
+      titleLines.forEach((line, lineIndex) => {
+        ctx.fillText(line, x + 127, y + 78 + lineIndex * 39);
+      });
+
+      // 分隔線
+      ctx.strokeStyle = "#dce8f2";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 24, y + 158);
+      ctx.lineTo(x + w - 24, y + 158);
+      ctx.stroke();
+
+      // 數據
+      const leftCenter = x + w * 0.31;
+      const rightCenter = x + w * 0.73;
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#728096";
+      ctx.font = `800 20px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText("目前成績", leftCenter, y + 194);
+      ctx.fillText("目標成績", rightCenter, y + 194);
+
+      const currentText = String(task.current);
+      const targetText = String(task.target);
+      const currentSize = fitText(currentText, 145, 58, 38, 900);
+      const targetSize = fitText(targetText, 145, 58, 38, 900);
+
+      ctx.fillStyle = "#0b5cb8";
+      ctx.font = `900 ${currentSize}px Arial, sans-serif`;
+      ctx.fillText(currentText, leftCenter, y + 245);
+
+      ctx.fillStyle = "#253b54";
+      ctx.font = `900 ${targetSize}px Arial, sans-serif`;
+      ctx.fillText(targetText, rightCenter, y + 245);
+
+      ctx.fillStyle = "#d5e1eb";
+      ctx.fillRect(x + w / 2 - 1, y + 182, 2, 67);
+    }
+
+    function drawReport(state) {
+      const x = 50;
+      const y = 780;
+      const w = 980;
+      const h = 250;
+
+      ctx.save();
+      ctx.shadowColor = "rgba(1, 15, 33, 0.28)";
+      ctx.shadowBlur = 22;
+      ctx.shadowOffsetY = 8;
+      const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+      gradient.addColorStop(0, "rgba(4,24,50,0.96)");
+      gradient.addColorStop(1, "rgba(8,63,114,0.96)");
+      ctx.fillStyle = gradient;
+      roundedRect(ctx, x, y, w, h, 28);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = "#35b8ff";
+      roundedRect(ctx, x + 28, y + 27, 8, 48, 4);
+      ctx.fill();
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `900 35px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(state.reportDate || "今日戰報", x + 54, y + 64);
+
+      ctx.textAlign = "right";
+      ctx.fillStyle = "rgba(255,255,255,0.68)";
+      ctx.font = `700 21px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(state.venue || "", x + w - 30, y + 60);
+
+      const result = state.score1 > state.score2 ? "悍將勝" : state.score1 < state.score2 ? "悍將敗" : "和局";
+      const resultColor = state.score1 > state.score2 ? "#31d58a" : state.score1 < state.score2 ? "#ff6b67" : "#ffcf5b";
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = `800 27px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(state.team1 || "富邦悍將", x + 230, y + 126);
+      ctx.fillText(state.team2 || "對手", x + w - 230, y + 126);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `900 72px Arial, sans-serif`;
+      ctx.fillText(String(state.score1), x + 365, y + 150);
+      ctx.fillText(String(state.score2), x + w - 365, y + 150);
+
+      ctx.fillStyle = "rgba(255,255,255,0.50)";
+      ctx.font = `900 46px Arial, sans-serif`;
+      ctx.fillText("：", x + w / 2, y + 147);
+
+      ctx.fillStyle = resultColor;
+      roundedRect(ctx, x + w / 2 - 69, y + 88, 138, 42, 21);
+      ctx.fill();
+
+      ctx.fillStyle = "#06192f";
+      ctx.font = `900 21px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(result, x + w / 2, y + 116);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.14)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 28, y + 175);
+      ctx.lineTo(x + w - 28, y + 175);
+      ctx.stroke();
+
+      const highlight = state.highlights || "尚未輸入重點數據";
+      const highlightSize = fitText(highlight, w - 70, 26, 18, 800);
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = `800 ${highlightSize}px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(highlight, x + w / 2, y + 220);
+    }
+
+    function renderCanvas() {
+      const state = getState();
+      ctx.clearRect(0, 0, 1080, 1080);
+
+      drawBackground();
+      drawHeader(state);
+
+      const cardW = 480;
+      const cardH = 270;
+      const gapX = 20;
+      const gapY = 20;
+      const startX = 50;
+      const startY = 185;
+
+      tasks.forEach((task, index) => {
+        const col = index % 2;
+        const row = Math.floor(index / 2);
+        const x = startX + col * (cardW + gapX);
+        const y = startY + row * (cardH + gapY);
+        drawTaskCard(task, index, x, y, cardW, cardH);
+      });
+
+      drawReport(state);
+    }
+
+    function renderAndSave() {
+      renderCanvas();
+      saveState();
+    }
+
+    function bindGlobalInputs() {
+      const ids = [
+        "mainTitle", "weekText", "updateText", "reportDate",
+        "venue", "team1", "team2", "score1", "score2", "highlights"
+      ];
+
+      ids.forEach(id => {
+        byId(id).addEventListener("input", renderAndSave);
+        byId(id).addEventListener("change", renderAndSave);
+      });
+    }
+
+    async function preloadIcons() {
+      await Promise.all(ICON_LIBRARY.map(icon => new Promise(resolve => {
+        const image = new Image();
+        image.onload = () => {
+          iconImages.set(icon.id, image);
+          resolve();
+        };
+        image.onerror = () => resolve();
+        image.src = icon.src;
+      })));
+    }
+
+    byId("downloadBtn").addEventListener("click", () => {
+      renderCanvas();
+      canvas.toBlob(blob => {
+        if (!blob) {
+          alert("圖片產生失敗，請重新整理後再試。");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `本週任務進度_${new Date().toISOString().slice(0, 10)}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    });
+
+    byId("resetBtn").addEventListener("click", () => {
+      const shouldReset = confirm("確定要清除目前任務與戰報，開始新的一週嗎？");
+      if (!shouldReset) return;
+
+      localStorage.removeItem(STORAGE_KEY);
+      tasks = structuredClone(DEFAULT_TASKS);
+
+      byId("mainTitle").value = "本週任務進度";
+      byId("weekText").value = "";
+      byId("updateText").value = "";
+      byId("reportDate").value = "今日戰報";
+      byId("venue").value = "";
+      byId("team1").value = "富邦悍將";
+      byId("team2").value = "";
+      byId("score1").value = 0;
+      byId("score2").value = 0;
+      byId("highlights").value = "";
+
+      makeTaskEditors();
+      renderAndSave();
+    });
+
+
+    // ==========================================================
+    // PWA：加入主畫面、獨立視窗與離線使用
+    // ==========================================================
+    let deferredInstallPrompt = null;
+    const installBtn = byId("installBtn");
+
+    function isStandaloneMode() {
+      return window.matchMedia("(display-mode: standalone)").matches ||
+             window.navigator.standalone === true;
+    }
+
+    function isIOSDevice() {
+      return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    }
+
+    function updateInstallButton() {
+      if (isStandaloneMode()) {
+        installBtn.textContent = "已安裝";
+        installBtn.disabled = true;
+        installBtn.style.opacity = "0.6";
+        return;
+      }
+
+      installBtn.disabled = false;
+      installBtn.style.opacity = "1";
+      installBtn.textContent = "安裝到手機";
+    }
+
+    window.addEventListener("beforeinstallprompt", event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      updateInstallButton();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      updateInstallButton();
+    });
+
+    installBtn.addEventListener("click", async () => {
+      if (isStandaloneMode()) {
+        alert("這個小程式已經安裝在主畫面。");
+        return;
+      }
+
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        updateInstallButton();
+        return;
+      }
+
+      if (isIOSDevice()) {
+        alert("請使用 Safari 開啟，點下方「分享」按鈕，再選擇「加入主畫面」。");
+        return;
+      }
+
+      alert("請打開瀏覽器選單，選擇「安裝應用程式」或「加到主畫面」。若沒有出現，請確認網站已使用 HTTPS 開啟。");
+    });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(error => {
+          console.warn("Service Worker 註冊失敗：", error);
+        });
+      });
+    }
+
+    updateInstallButton();
+
+    async function init() {
+      loadState();
+      makeTaskEditors();
+      bindGlobalInputs();
+      await preloadIcons();
+      renderCanvas();
+    }
+
+    init();
+  </script>
+</body>
+</html>
