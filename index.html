@@ -3,15 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>悍將任務戰報</title>
-
-  <meta name="theme-color" content="#071a33" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="任務戰報" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <title>每週任務進度圖片產生器</title>
   <style>
     :root {
       --navy: #071a33;
@@ -28,18 +20,8 @@
 
     * { box-sizing: border-box; }
 
-    html {
-      background: var(--page);
-    }
-
     body {
       margin: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
-      padding-top: env(safe-area-inset-top);
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
       color: var(--text);
       background: var(--page);
       font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
@@ -177,7 +159,7 @@
 
     .actions {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: 1fr 1fr;
       gap: 10px;
       position: sticky;
       bottom: 0;
@@ -346,7 +328,6 @@
 
         <div class="actions">
           <button id="downloadBtn" class="btn btn-primary">下載 1080×1080 PNG</button>
-          <button id="installBtn" class="btn btn-primary">安裝到手機</button>
           <button id="resetBtn" class="btn btn-secondary">開始新的一週</button>
         </div>
       </div>
@@ -450,10 +431,10 @@
     ];
 
     const DEFAULT_TASKS = [
-      { icon: "batting", title: "團隊累積安打", current: 25, target: 30 },
-      { icon: "run", title: "團隊累積得分", current: 20, target: 20 },
-      { icon: "win", title: "本週取得勝場", current: 2, target: 3 },
-      { icon: "pitching", title: "投手累積三振", current: 28, target: 25 }
+      { icon: "batting", title: "團隊累積安打", current: 25, target: 30, comparison: "gte" },
+      { icon: "run", title: "團隊累積得分", current: 20, target: 20, comparison: "gte" },
+      { icon: "win", title: "本週取得勝場", current: 2, target: 3, comparison: "gte" },
+      { icon: "pitching", title: "投手累積三振", current: 28, target: 25, comparison: "gte" }
     ];
 
     const STORAGE_KEY = "fubon-weekly-task-poster-v1";
@@ -471,6 +452,17 @@
     function clampNumber(value, fallback = 0) {
       const number = Number(value);
       return Number.isFinite(number) ? Math.max(0, number) : fallback;
+    }
+
+    function normalizeComparison(value) {
+      return value === "lt" ? "lt" : "gte";
+    }
+
+    function isTaskDone(task) {
+      const comparison = normalizeComparison(task.comparison);
+      return comparison === "lt"
+        ? task.current < task.target
+        : task.current >= task.target;
     }
 
     function roundedRect(context, x, y, width, height, radius) {
@@ -567,7 +559,8 @@
             icon: ICON_LIBRARY.some(icon => icon.id === task.icon) ? task.icon : DEFAULT_TASKS[index].icon,
             title: String(task.title ?? ""),
             current: clampNumber(task.current),
-            target: clampNumber(task.target)
+            target: clampNumber(task.target),
+            comparison: normalizeComparison(task.comparison)
           }));
         }
       } catch (error) {
@@ -584,8 +577,8 @@
         editor.innerHTML = `
           <div class="task-editor-head">
             <span>任務 ${index + 1}</span>
-            <span class="status-badge ${task.current >= task.target ? "done" : "pending"}" id="status-${index}">
-              ${task.current >= task.target ? "○ 已達成" : "× 未達成"}
+            <span class="status-badge ${isTaskDone(task) ? "done" : "pending"}" id="status-${index}">
+              ${isTaskDone(task) ? "○ 已達成" : "× 未達成"}
             </span>
           </div>
 
@@ -616,6 +609,14 @@
               <input id="target-${index}" type="number" min="0" max="9999" value="${task.target}" />
             </div>
           </div>
+
+          <div class="field">
+            <label for="comparison-${index}">達成條件</label>
+            <select id="comparison-${index}">
+              <option value="gte" ${normalizeComparison(task.comparison) === "gte" ? "selected" : ""}>目前成績 ≥ 目標成績</option>
+              <option value="lt" ${normalizeComparison(task.comparison) === "lt" ? "selected" : ""}>目前成績 &lt; 目標成績</option>
+            </select>
+          </div>
         `;
 
         taskEditors.appendChild(editor);
@@ -624,6 +625,7 @@
         const titleInput = byId(`title-${index}`);
         const currentInput = byId(`current-${index}`);
         const targetInput = byId(`target-${index}`);
+        const comparisonSelect = byId(`comparison-${index}`);
         const preview = byId(`icon-preview-${index}`);
 
         function updateTask() {
@@ -631,7 +633,8 @@
             icon: iconSelect.value,
             title: titleInput.value,
             current: clampNumber(currentInput.value),
-            target: clampNumber(targetInput.value)
+            target: clampNumber(targetInput.value),
+            comparison: normalizeComparison(comparisonSelect.value)
           };
 
           const icon = ICON_LIBRARY.find(item => item.id === tasks[index].icon);
@@ -641,7 +644,7 @@
         }
 
         preview.src = ICON_LIBRARY.find(item => item.id === task.icon)?.src || "";
-        [iconSelect, titleInput, currentInput, targetInput].forEach(element => {
+        [iconSelect, titleInput, currentInput, targetInput, comparisonSelect].forEach(element => {
           element.addEventListener("input", updateTask);
           element.addEventListener("change", updateTask);
         });
@@ -660,7 +663,7 @@
     function updateStatusBadge(index) {
       const badge = byId(`status-${index}`);
       if (!badge) return;
-      const done = tasks[index].current >= tasks[index].target;
+      const done = isTaskDone(tasks[index]);
       badge.className = `status-badge ${done ? "done" : "pending"}`;
       badge.textContent = done ? "○ 已達成" : "× 未達成";
     }
@@ -720,7 +723,7 @@
     }
 
     function drawTaskCard(task, index, x, y, w, h) {
-      const done = task.current >= task.target;
+      const done = isTaskDone(task);
 
       ctx.save();
       ctx.shadowColor = "rgba(2, 22, 48, 0.25)";
@@ -792,7 +795,7 @@
       ctx.fillStyle = "#728096";
       ctx.font = `800 20px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
       ctx.fillText("目前成績", leftCenter, y + 194);
-      ctx.fillText("目標成績", rightCenter, y + 194);
+      ctx.fillText(normalizeComparison(task.comparison) === "lt" ? "目標成績（小於）" : "目標成績", rightCenter, y + 194);
 
       const currentText = String(task.current);
       const targetText = String(task.target);
@@ -975,78 +978,6 @@
       makeTaskEditors();
       renderAndSave();
     });
-
-
-    // ==========================================================
-    // PWA：加入主畫面、獨立視窗與離線使用
-    // ==========================================================
-    let deferredInstallPrompt = null;
-    const installBtn = byId("installBtn");
-
-    function isStandaloneMode() {
-      return window.matchMedia("(display-mode: standalone)").matches ||
-             window.navigator.standalone === true;
-    }
-
-    function isIOSDevice() {
-      return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    }
-
-    function updateInstallButton() {
-      if (isStandaloneMode()) {
-        installBtn.textContent = "已安裝";
-        installBtn.disabled = true;
-        installBtn.style.opacity = "0.6";
-        return;
-      }
-
-      installBtn.disabled = false;
-      installBtn.style.opacity = "1";
-      installBtn.textContent = "安裝到手機";
-    }
-
-    window.addEventListener("beforeinstallprompt", event => {
-      event.preventDefault();
-      deferredInstallPrompt = event;
-      updateInstallButton();
-    });
-
-    window.addEventListener("appinstalled", () => {
-      deferredInstallPrompt = null;
-      updateInstallButton();
-    });
-
-    installBtn.addEventListener("click", async () => {
-      if (isStandaloneMode()) {
-        alert("這個小程式已經安裝在主畫面。");
-        return;
-      }
-
-      if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        await deferredInstallPrompt.userChoice;
-        deferredInstallPrompt = null;
-        updateInstallButton();
-        return;
-      }
-
-      if (isIOSDevice()) {
-        alert("請使用 Safari 開啟，點下方「分享」按鈕，再選擇「加入主畫面」。");
-        return;
-      }
-
-      alert("請打開瀏覽器選單，選擇「安裝應用程式」或「加到主畫面」。若沒有出現，請確認網站已使用 HTTPS 開啟。");
-    });
-
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(error => {
-          console.warn("Service Worker 註冊失敗：", error);
-        });
-      });
-    }
-
-    updateInstallButton();
 
     async function init() {
       loadState();
