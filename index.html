@@ -145,17 +145,42 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 76px;
-      height: 28px;
-      padding: 0 10px;
+      min-width: 110px;
+      height: 30px;
+      padding: 0 12px;
       border-radius: 999px;
       color: white;
       font-size: 13px;
       font-weight: 900;
+      letter-spacing: 0.2px;
     }
 
     .status-badge.done { background: var(--success); }
     .status-badge.pending { background: var(--danger); }
+    .status-badge.impossible { background: #f59e0b; }
+
+    .impossible-btn {
+      width: 100%;
+      border: 1px solid #f1c774;
+      border-radius: 11px;
+      padding: 10px 12px;
+      background: #fff7e7;
+      color: #9a5b00;
+      cursor: pointer;
+      font-weight: 900;
+      transition: 0.15s ease;
+    }
+
+    .impossible-btn:hover {
+      background: #ffefc8;
+    }
+
+    .impossible-btn.active {
+      background: #f59e0b;
+      border-color: #f59e0b;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+    }
 
     .actions {
       display: grid;
@@ -431,13 +456,14 @@
     ];
 
     const DEFAULT_TASKS = [
-      { icon: "batting", title: "團隊累積安打", current: 25, target: 30, comparison: "gte" },
-      { icon: "run", title: "團隊累積得分", current: 20, target: 20, comparison: "gte" },
-      { icon: "win", title: "本週取得勝場", current: 2, target: 3, comparison: "gte" },
-      { icon: "pitching", title: "投手累積三振", current: 28, target: 25, comparison: "gte" }
+      { icon: "batting", title: "團隊累積安打", current: 25, target: 30, comparison: "gte", impossible: false },
+      { icon: "run", title: "團隊累積得分", current: 20, target: 20, comparison: "gte", impossible: false },
+      { icon: "win", title: "本週取得勝場", current: 2, target: 3, comparison: "gte", impossible: false },
+      { icon: "pitching", title: "投手累積三振", current: 28, target: 25, comparison: "gte", impossible: false }
     ];
 
     const STORAGE_KEY = "fubon-weekly-task-poster-v1";
+    const APP_VERSION = "v1.03";
     const canvas = document.getElementById("poster");
     const ctx = canvas.getContext("2d");
     const taskEditors = document.getElementById("taskEditors");
@@ -463,6 +489,11 @@
       return comparison === "lt"
         ? task.current < task.target
         : task.current >= task.target;
+    }
+
+    function getTaskStatus(task) {
+      if (task.impossible) return "impossible";
+      return isTaskDone(task) ? "done" : "pending";
     }
 
     function roundedRect(context, x, y, width, height, radius) {
@@ -560,7 +591,8 @@
             title: String(task.title ?? ""),
             current: clampNumber(task.current),
             target: clampNumber(task.target),
-            comparison: normalizeComparison(task.comparison)
+            comparison: normalizeComparison(task.comparison),
+            impossible: Boolean(task.impossible)
           }));
         }
       } catch (error) {
@@ -577,8 +609,8 @@
         editor.innerHTML = `
           <div class="task-editor-head">
             <span>任務 ${index + 1}</span>
-            <span class="status-badge ${isTaskDone(task) ? "done" : "pending"}" id="status-${index}">
-              ${isTaskDone(task) ? "○ 已達成" : "× 未達成"}
+            <span class="status-badge ${getTaskStatus(task)}" id="status-${index}">
+              ${getTaskStatus(task) === "impossible" ? "! 無法達成" : getTaskStatus(task) === "done" ? "O 已達成" : "X 未達成"}
             </span>
           </div>
 
@@ -617,6 +649,10 @@
               <option value="lt" ${normalizeComparison(task.comparison) === "lt" ? "selected" : ""}>目前成績 &lt; 目標成績</option>
             </select>
           </div>
+
+          <button type="button" class="impossible-btn ${task.impossible ? "active" : ""}" id="impossible-${index}" aria-pressed="${task.impossible ? "true" : "false"}">
+            ${task.impossible ? "取消「已無法達成」" : "已無法達成"}
+          </button>
         `;
 
         taskEditors.appendChild(editor);
@@ -626,6 +662,7 @@
         const currentInput = byId(`current-${index}`);
         const targetInput = byId(`target-${index}`);
         const comparisonSelect = byId(`comparison-${index}`);
+        const impossibleButton = byId(`impossible-${index}`);
         const preview = byId(`icon-preview-${index}`);
 
         function updateTask() {
@@ -634,7 +671,8 @@
             title: titleInput.value,
             current: clampNumber(currentInput.value),
             target: clampNumber(targetInput.value),
-            comparison: normalizeComparison(comparisonSelect.value)
+            comparison: normalizeComparison(comparisonSelect.value),
+            impossible: Boolean(tasks[index].impossible)
           };
 
           const icon = ICON_LIBRARY.find(item => item.id === tasks[index].icon);
@@ -642,6 +680,12 @@
           updateStatusBadge(index);
           renderAndSave();
         }
+
+        impossibleButton.addEventListener("click", () => {
+          tasks[index].impossible = !tasks[index].impossible;
+          updateStatusBadge(index);
+          renderAndSave();
+        });
 
         preview.src = ICON_LIBRARY.find(item => item.id === task.icon)?.src || "";
         [iconSelect, titleInput, currentInput, targetInput, comparisonSelect].forEach(element => {
@@ -663,9 +707,22 @@
     function updateStatusBadge(index) {
       const badge = byId(`status-${index}`);
       if (!badge) return;
-      const done = isTaskDone(tasks[index]);
-      badge.className = `status-badge ${done ? "done" : "pending"}`;
-      badge.textContent = done ? "○ 已達成" : "× 未達成";
+
+      const status = getTaskStatus(tasks[index]);
+      badge.className = `status-badge ${status}`;
+      badge.textContent = status === "impossible"
+        ? "! 無法達成"
+        : status === "done"
+          ? "O 已達成"
+          : "X 未達成";
+
+      const impossibleButton = byId(`impossible-${index}`);
+      if (impossibleButton) {
+        const active = status === "impossible";
+        impossibleButton.classList.toggle("active", active);
+        impossibleButton.setAttribute("aria-pressed", String(active));
+        impossibleButton.textContent = active ? "取消「已無法達成」" : "已無法達成";
+      }
     }
 
     function drawBackground() {
@@ -723,20 +780,26 @@
     }
 
     function drawTaskCard(task, index, x, y, w, h) {
-      const done = isTaskDone(task);
+      const status = getTaskStatus(task);
+      const done = status === "done";
+      const impossible = status === "impossible";
 
       ctx.save();
       ctx.shadowColor = "rgba(2, 22, 48, 0.25)";
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 8;
-      ctx.fillStyle = "rgba(255,255,255,0.96)";
+      ctx.fillStyle = impossible ? "#fff4d8" : "rgba(255,255,255,0.96)";
       roundedRect(ctx, x, y, w, h, 26);
       ctx.fill();
       ctx.restore();
 
       ctx.save();
-      ctx.strokeStyle = done ? "rgba(24,167,101,0.55)" : "rgba(255,255,255,0.45)";
-      ctx.lineWidth = done ? 5 : 2;
+      ctx.strokeStyle = done
+        ? "rgba(24,167,101,0.55)"
+        : impossible
+          ? "rgba(245,158,11,0.88)"
+          : "rgba(255,255,255,0.45)";
+      ctx.lineWidth = done || impossible ? 5 : 2;
       roundedRect(ctx, x + 2, y + 2, w - 4, h - 4, 24);
       ctx.stroke();
       ctx.restore();
@@ -758,16 +821,16 @@
       }
 
       // 狀態
-      ctx.fillStyle = done ? "#18a765" : "#e53935";
-      ctx.beginPath();
-      ctx.arc(x + w - 50, y + 49, 31, 0, Math.PI * 2);
+      const statusText = impossible ? "! 無法達成" : done ? "O 已達成" : "X 未達成";
+      ctx.fillStyle = impossible ? "#f59e0b" : done ? "#18a765" : "#e53935";
+      roundedRect(ctx, x + w - 164, y + 24, 140, 40, 20);
       ctx.fill();
 
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `900 40px Arial, sans-serif`;
-      ctx.fillText(done ? "○" : "×", x + w - 50, y + 48);
+      ctx.font = `900 18px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+      ctx.fillText(statusText, x + w - 94, y + 44);
 
       // 標題
       ctx.textAlign = "left";
@@ -810,8 +873,33 @@
       ctx.font = `900 ${targetSize}px Arial, sans-serif`;
       ctx.fillText(targetText, rightCenter, y + 245);
 
-      ctx.fillStyle = "#d5e1eb";
+      ctx.fillStyle = impossible ? "rgba(245,158,11,0.42)" : "#d5e1eb";
       ctx.fillRect(x + w / 2 - 1, y + 182, 2, 67);
+
+      if (impossible) {
+        const badgeW = 118;
+        const badgeH = 46;
+        const badgeX = x + w / 2 - badgeW / 2;
+        const badgeY = y + 198;
+
+        ctx.save();
+        ctx.fillStyle = "#fff8e9";
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 3;
+        roundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 16);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#c27803";
+        ctx.textBaseline = "alphabetic";
+        ctx.font = `900 11px Arial, sans-serif`;
+        ctx.fillText("WARNING", x + w / 2, badgeY + 17);
+        ctx.fillStyle = "#8b5a00";
+        ctx.font = `900 16px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        ctx.fillText("無法達成", x + w / 2, badgeY + 36);
+        ctx.restore();
+      }
     }
 
     function drawReport(state) {
@@ -886,6 +974,16 @@
       ctx.fillText(highlight, x + w / 2, y + 220);
     }
 
+    function drawVersion() {
+      ctx.save();
+      ctx.textAlign = "right";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "rgba(255,255,255,0.58)";
+      ctx.font = `700 18px Arial, sans-serif`;
+      ctx.fillText(APP_VERSION, 1024, 1062);
+      ctx.restore();
+    }
+
     function renderCanvas() {
       const state = getState();
       ctx.clearRect(0, 0, 1080, 1080);
@@ -909,6 +1007,7 @@
       });
 
       drawReport(state);
+      drawVersion();
     }
 
     function renderAndSave() {
