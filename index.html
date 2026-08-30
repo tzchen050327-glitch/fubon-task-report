@@ -158,6 +158,7 @@
     .status-badge.done { background: var(--success); }
     .status-badge.pending { background: var(--danger); }
     .status-badge.impossible { background: #f59e0b; }
+    .status-badge.preweek { background: #64748b; }
 
     .impossible-btn {
       width: 100%;
@@ -261,6 +262,33 @@
       align-items: end;
     }
 
+    .preweek-note {
+      margin-top: 8px;
+      padding: 9px 11px;
+      border: 1px solid #cfe0f2;
+      border-radius: 10px;
+      background: #f3f8fd;
+      color: #405168;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .app-version {
+      position: fixed;
+      right: 14px;
+      bottom: 10px;
+      z-index: 25;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(7, 26, 51, 0.82);
+      color: #fff;
+      font: 800 12px Arial, sans-serif;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+      pointer-events: none;
+    }
+
     @media (max-width: 1040px) {
       .app {
         grid-template-columns: 1fr;
@@ -329,8 +357,16 @@
               <input id="team1" maxlength="12" value="富邦悍將" />
             </div>
             <div class="field">
-              <label for="team2">對手隊名</label>
-              <input id="team2" maxlength="12" value="統一獅" />
+              <label for="team2">對手／模式</label>
+              <select id="team2">
+                <option value="中信兄弟">中信兄弟</option>
+                <option value="統一獅" selected>統一獅</option>
+                <option value="樂天桃猿">樂天桃猿</option>
+                <option value="味全龍">味全龍</option>
+                <option value="台鋼雄鷹">台鋼雄鷹</option>
+                <option value="週前更新">週前更新</option>
+              </select>
+              <div id="preweekNote" class="preweek-note" hidden>週前更新模式：比分停用，下載內容仍為小遊戲圖。</div>
             </div>
           </div>
 
@@ -361,7 +397,7 @@
     <section class="panel preview-panel">
       <header class="panel-header">
         <h2>圖片預覽</h2>
-        <p>編輯內容會即時更新；下載圖片不會包含左側輸入介面。</p>
+        <p>編輯內容會即時更新；按下載後只會輸出目前的小遊戲進度圖片。</p>
       </header>
       <div class="canvas-wrap">
         <canvas id="poster" width="1080" height="1080"></canvas>
@@ -371,6 +407,8 @@
       </div>
     </section>
   </main>
+
+  <div id="appVersion" class="app-version"></div>
 
   <script>
     // ==========================================================
@@ -463,7 +501,8 @@
     ];
 
     const STORAGE_KEY = "fubon-weekly-task-poster-v1";
-    const APP_VERSION = "v1.03";
+    const APP_VERSION = "v1.08";
+
     const canvas = document.getElementById("poster");
     const ctx = canvas.getContext("2d");
     const taskEditors = document.getElementById("taskEditors");
@@ -492,6 +531,7 @@
     }
 
     function getTaskStatus(task) {
+      if (isPreweekMode()) return "preweek";
       if (task.impossible) return "impossible";
       return isTaskDone(task) ? "done" : "pending";
     }
@@ -610,7 +650,7 @@
           <div class="task-editor-head">
             <span>任務 ${index + 1}</span>
             <span class="status-badge ${getTaskStatus(task)}" id="status-${index}">
-              ${getTaskStatus(task) === "impossible" ? "! 無法達成" : getTaskStatus(task) === "done" ? "O 已達成" : "X 未達成"}
+              ${getTaskStatus(task) === "preweek" ? "● 尚未開始" : getTaskStatus(task) === "impossible" ? "! 無法達成" : getTaskStatus(task) === "done" ? "O 已達成" : "X 未達成"}
             </span>
           </div>
 
@@ -710,18 +750,26 @@
 
       const status = getTaskStatus(tasks[index]);
       badge.className = `status-badge ${status}`;
-      badge.textContent = status === "impossible"
-        ? "! 無法達成"
-        : status === "done"
-          ? "O 已達成"
-          : "X 未達成";
+      badge.textContent = status === "preweek"
+        ? "● 尚未開始"
+        : status === "impossible"
+          ? "! 無法達成"
+          : status === "done"
+            ? "O 已達成"
+            : "X 未達成";
 
       const impossibleButton = byId(`impossible-${index}`);
       if (impossibleButton) {
+        const preweek = status === "preweek";
         const active = status === "impossible";
+        impossibleButton.disabled = preweek;
         impossibleButton.classList.toggle("active", active);
         impossibleButton.setAttribute("aria-pressed", String(active));
-        impossibleButton.textContent = active ? "取消「已無法達成」" : "已無法達成";
+        impossibleButton.textContent = preweek
+          ? "週前更新：尚未開始"
+          : active
+            ? "取消「已無法達成」"
+            : "已無法達成";
       }
     }
 
@@ -783,23 +831,26 @@
       const status = getTaskStatus(task);
       const done = status === "done";
       const impossible = status === "impossible";
+      const preweek = status === "preweek";
 
       ctx.save();
       ctx.shadowColor = "rgba(2, 22, 48, 0.25)";
       ctx.shadowBlur = 20;
       ctx.shadowOffsetY = 8;
-      ctx.fillStyle = impossible ? "#fff4d8" : "rgba(255,255,255,0.96)";
+      ctx.fillStyle = preweek ? "#eef4f8" : impossible ? "#fff4d8" : "rgba(255,255,255,0.96)";
       roundedRect(ctx, x, y, w, h, 26);
       ctx.fill();
       ctx.restore();
 
       ctx.save();
-      ctx.strokeStyle = done
-        ? "rgba(24,167,101,0.55)"
-        : impossible
-          ? "rgba(245,158,11,0.88)"
-          : "rgba(255,255,255,0.45)";
-      ctx.lineWidth = done || impossible ? 5 : 2;
+      ctx.strokeStyle = preweek
+        ? "rgba(100,116,139,0.72)"
+        : done
+          ? "rgba(24,167,101,0.55)"
+          : impossible
+            ? "rgba(245,158,11,0.88)"
+            : "rgba(255,255,255,0.45)";
+      ctx.lineWidth = done || impossible || preweek ? 5 : 2;
       roundedRect(ctx, x + 2, y + 2, w - 4, h - 4, 24);
       ctx.stroke();
       ctx.restore();
@@ -821,8 +872,8 @@
       }
 
       // 狀態
-      const statusText = impossible ? "! 無法達成" : done ? "O 已達成" : "X 未達成";
-      ctx.fillStyle = impossible ? "#f59e0b" : done ? "#18a765" : "#e53935";
+      const statusText = preweek ? "● 尚未開始" : impossible ? "! 無法達成" : done ? "O 已達成" : "X 未達成";
+      ctx.fillStyle = preweek ? "#64748b" : impossible ? "#f59e0b" : done ? "#18a765" : "#e53935";
       roundedRect(ctx, x + w - 164, y + 24, 140, 40, 20);
       ctx.fill();
 
@@ -873,7 +924,7 @@
       ctx.font = `900 ${targetSize}px Arial, sans-serif`;
       ctx.fillText(targetText, rightCenter, y + 245);
 
-      ctx.fillStyle = impossible ? "rgba(245,158,11,0.42)" : "#d5e1eb";
+      ctx.fillStyle = preweek ? "rgba(100,116,139,0.38)" : impossible ? "rgba(245,158,11,0.42)" : "#d5e1eb";
       ctx.fillRect(x + w / 2 - 1, y + 182, 2, 67);
 
       if (impossible) {
@@ -902,11 +953,55 @@
       }
     }
 
+    function downloadCanvasImage(canvasRef, filename) {
+      canvasRef.toBlob(blob => {
+        if (!blob) {
+          alert("圖片產生失敗，請重新整理後再試。");
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, "image/png");
+    }
+
     function drawReport(state) {
       const x = 50;
       const y = 780;
       const w = 980;
       const h = 250;
+
+      if (state.team2 === "週前更新") {
+        ctx.save();
+        ctx.shadowColor = "rgba(1, 15, 33, 0.28)";
+        ctx.shadowBlur = 22;
+        ctx.shadowOffsetY = 8;
+        const preGradient = ctx.createLinearGradient(x, y, x + w, y + h);
+        preGradient.addColorStop(0, "rgba(4,24,50,0.96)");
+        preGradient.addColorStop(1, "rgba(11,92,184,0.96)");
+        ctx.fillStyle = preGradient;
+        roundedRect(ctx, x, y, w, h, 28);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = "#35b8ff";
+        roundedRect(ctx, x + 28, y + 27, 8, 48, 4);
+        ctx.fill();
+        ctx.textAlign = "left";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `900 38px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        ctx.fillText("週前更新", x + 54, y + 65);
+        ctx.textAlign = "center";
+        ctx.font = `900 62px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        ctx.fillText("新的一週，任務準備完成", x + w / 2, y + 146);
+        ctx.fillStyle = "rgba(255,255,255,0.82)";
+        ctx.font = `800 26px "Noto Sans TC", "Microsoft JhengHei", sans-serif`;
+        ctx.fillText(state.weekText || "本週任務", x + w / 2, y + 205);
+        return;
+      }
 
       ctx.save();
       ctx.shadowColor = "rgba(1, 15, 33, 0.28)";
@@ -974,16 +1069,6 @@
       ctx.fillText(highlight, x + w / 2, y + 220);
     }
 
-    function drawVersion() {
-      ctx.save();
-      ctx.textAlign = "right";
-      ctx.textBaseline = "alphabetic";
-      ctx.fillStyle = "rgba(255,255,255,0.58)";
-      ctx.font = `700 18px Arial, sans-serif`;
-      ctx.fillText(APP_VERSION, 1024, 1062);
-      ctx.restore();
-    }
-
     function renderCanvas() {
       const state = getState();
       ctx.clearRect(0, 0, 1080, 1080);
@@ -1007,12 +1092,31 @@
       });
 
       drawReport(state);
-      drawVersion();
     }
 
     function renderAndSave() {
       renderCanvas();
       saveState();
+    }
+
+    function isPreweekMode() {
+      return byId("team2").value === "週前更新";
+    }
+
+    function syncOpponentMode() {
+      const preweek = isPreweekMode();
+      const note = byId("preweekNote");
+      if (note) note.hidden = !preweek;
+      ["score1", "score2"].forEach(id => {
+        const el = byId(id);
+        if (el) el.disabled = preweek;
+      });
+      tasks.forEach((_, index) => updateStatusBadge(index));
+    }
+
+    function downloadTaskImage(today) {
+      renderCanvas();
+      downloadCanvasImage(canvas, `本週任務進度_${today}.png`);
     }
 
     function bindGlobalInputs() {
@@ -1023,7 +1127,10 @@
 
       ids.forEach(id => {
         byId(id).addEventListener("input", renderAndSave);
-        byId(id).addEventListener("change", renderAndSave);
+        byId(id).addEventListener("change", () => {
+          if (id === "team2") syncOpponentMode();
+          renderAndSave();
+        });
       });
     }
 
@@ -1040,20 +1147,8 @@
     }
 
     byId("downloadBtn").addEventListener("click", () => {
-      renderCanvas();
-      canvas.toBlob(blob => {
-        if (!blob) {
-          alert("圖片產生失敗，請重新整理後再試。");
-          return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `本週任務進度_${new Date().toISOString().slice(0, 10)}.png`;
-        link.click();
-        URL.revokeObjectURL(url);
-      }, "image/png");
+      const today = new Date().toISOString().slice(0, 10);
+      downloadTaskImage(today);
     });
 
     byId("resetBtn").addEventListener("click", () => {
@@ -1069,7 +1164,7 @@
       byId("reportDate").value = "今日戰報";
       byId("venue").value = "";
       byId("team1").value = "富邦悍將";
-      byId("team2").value = "";
+      byId("team2").value = "統一獅";
       byId("score1").value = 0;
       byId("score2").value = 0;
       byId("highlights").value = "";
@@ -1080,8 +1175,10 @@
 
     async function init() {
       loadState();
+      byId("appVersion").textContent = APP_VERSION;
       makeTaskEditors();
       bindGlobalInputs();
+      syncOpponentMode();
       await preloadIcons();
       renderCanvas();
     }
