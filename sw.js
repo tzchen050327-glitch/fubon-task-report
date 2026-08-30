@@ -1,4 +1,4 @@
-const CACHE_NAME = "fubon-task-report-v3";
+const CACHE_NAME = "fubon-task-report-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
